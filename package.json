@@ -1,0 +1,25 @@
+{
+  "name": "fdg-content-syndicator",
+  "version": "0.1.0",
+  "description": "Example block scaffolded with Create Block tool.",
+  "author": "The WordPress Contributors",
+  "license": "GPL-2.0-or-later",
+  "main": "build/index.js",
+  "scripts": {
+    "compilecss": "node-sass -w --include-path scss assets/css/index.scss assets/build/css/index.css --watch --output-style compressed",
+    "build": "wp-scripts build --watch",
+    "compileall": "wp-scripts build --watch && node-sass -w --include-path scss assets/css/index.scss assets/build/css/index.css --watch --output-style compressed",
+    "format": "wp-scripts format --watch",
+    "lint:css": "wp-scripts lint-style",
+    "lint:js": "wp-scripts lint-js",
+    "packages-update": "wp-scripts packages-update",
+    "plugin-zip": "wp-scripts plugin-zip",
+    "start": "wp-scripts start"
+  },
+  "dependencies": {
+    "@wordpress/scripts": "^26.14.0",
+    "classnames": "^2.3.2",
+    "node-sass": "^9.0.0",
+    "sass": "^1.69.1"
+  }
+}
