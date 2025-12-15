@@ -27,7 +27,8 @@ jQuery(document).ready(function($) {
                     dataType: 'JSON',
                     data: {
                         action: 'fdg_sync_search_posts',
-                        search: searchTerm
+                        search: searchTerm,
+                        postType: $('#syndicator-post-type').val()
                     },
                     success: function(response) {
                         $('.search-post-box-bottom .search-variants .variants-listing').empty().append(response.data.list)

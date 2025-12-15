@@ -15,4 +15,10 @@
 require_once "config.php";
 require_once "classes/fdg-app.php";
 require_once "functions.php";
+
+require_once FDG_CONTENT_SYNDICATOR_PLUGIN_PATH . 'classes/fdg-syndicator-queue.php';
+
+register_activation_hook(__FILE__, function() {
+    FDG_Syndicator_Queue::instance()->install_table();
+});
 new FDG_App();

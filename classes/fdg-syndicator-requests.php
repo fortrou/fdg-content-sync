@@ -15,25 +15,28 @@ class FDG_Syndicator_Requests {
         ];
     }
 
-    public function trigger_search_request($searchTerm)
+    public function trigger_search_request($searchTerm, $postType)
     {
-        $base = rtrim($this->options['site_url'], '/') . '/wp-json/fdg_syndicator/v1/posts/search/' . $searchTerm;
+        $base = rtrim($this->options['site_url'], '/') . '/wp-json/fdg_syndicator/v1/posts/search/' . $postType . '/' . $searchTerm;
         return $this->request_wrapper($base);
     }
 
     public function trigger_post_sync_request($data)
     {
         $base = rtrim($this->options['site_url'], '/') . '/wp-json/fdg_syndicator/v1/posts/moderate';
-        return $this->request_wrapper($base, $data);
+        return $this->request_wrapper($base, $data, 'POST');
     }
 
-    public function request_wrapper($base, $params = [])
+    public function request_wrapper($base, $params = [], $method = 'GET')
     {
         $result = wp_remote_request($base, [
             'headers' => self::get_auth_headers($this->options['user_token']),
-            'body' => json_encode($params)
+            'body' => $params,
+            'method' => $method
         ]);
+        //var_dump($base);
         $formatted = $this->format_reponse($result);
+        //var_dump($formatted);
         return $formatted;
     }
 

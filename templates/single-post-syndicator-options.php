@@ -1,6 +1,7 @@
 <?php
 $options = FDG_App::parse_options();
 $existingMeta = get_post_meta($post->ID, 'syndication_data', true);
+$postType = get_post_type($post->ID);
 if (!empty ($existingMeta)) {
     $existingMeta = json_decode($existingMeta, true);
 }
@@ -25,6 +26,7 @@ if (empty($mergedSyndicationParams['remote_post'])) {
         'slug' => ''
     ];
 }
+wp_nonce_field('sync_meta_action', 'sync_meta_nonce');
 ?>
 <div class="syndicator-setting-template">
     <div class="setting-line">
@@ -35,6 +37,7 @@ if (empty($mergedSyndicationParams['remote_post'])) {
     </div>
 
     <div class="syndication-configurations" <?php if (!$mergedSyndicationParams['enabled_syndication']): ?> style="display: none;" <?php endif; ?>>
+        <input type="hidden" id="syndicator-post-type" value="<?php echo $postType; ?>">
         <div class="setting-line heading-line">Sync type</div>
         <div class="setting-line tabs-switcher-line">
             <input id="sync-by-slug" type="radio" name="syndication_type" value="slug" <?php if ($mergedSyndicationParams['syndication_type'] == 'slug'): ?> checked="checked" <?php endif; ?>>

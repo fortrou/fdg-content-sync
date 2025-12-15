@@ -21,7 +21,7 @@ class FDG_Syndicator_Ajax_Actions {
     {
         $post_title = $_POST['search'];
 
-        $data = $this->requests->trigger_search_request(htmlspecialchars($post_title));
+        $data = $this->requests->trigger_search_request(htmlspecialchars($post_title), htmlspecialchars($_POST['postType']));
 
         $postsLayout = '';
 

@@ -13,7 +13,19 @@ class FDG_Syndicator_Api {
             'permission_callback' => '__return_true'
         ));
 
-        register_rest_route('fdg_syndicator/v1', '/posts/search/(?P<title>[^\/]+)', array(
+        register_rest_route('fdg_syndicator/v1', '/media/chunks', array(
+            'methods' => 'POST',
+            'callback' => [$this, 'accept_media_chunks'],
+            'permission_callback' => '__return_true'
+        ));
+
+        register_rest_route('fdg_syndicator/v1', '/posts/chunks', array(
+            'methods' => 'POST',
+            'callback' => [$this, 'accept_post_chunks'],
+            'permission_callback' => '__return_true'
+        ));
+
+        register_rest_route('fdg_syndicator/v1', '/posts/search/(?P<posttype>[^\/]+)/(?P<title>[^\/]+)', array(
             'methods' => 'GET',
             'callback' => [$this, 'search_post_by_title'],
             'permission_callback' => '__return_true'
@@ -21,8 +33,8 @@ class FDG_Syndicator_Api {
     }
 
     public function modify_post($request) {
-        $json_data = file_get_contents('php://input');
-        $data = json_decode($json_data, true);
+        $data = $request->get_params();
+        error_log('MODIFY DATA ' . print_r($data, true));
         global $wpdb;
 
 
@@ -56,16 +68,23 @@ class FDG_Syndicator_Api {
 
         return [
             'status' => true,
-            'post' => $postID
+            'post' => [
+                'id'   => $postID,
+                'name' => $arrayToProduce['post_title'],
+                'slug' => get_post_field('post_name', $postID),
+            ]
         ];
     }
 
     public function search_post_by_title($request)
     {
         $title = urldecode($request->get_param('title'));
+        $posttype = urldecode($request->get_param('posttype'));
+        error_log("posttype: " . $posttype);
+        error_log('SEARCH RESULT ' . print_r($title, true));
         global $wpdb;
         $returnList = [];
-        $context = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}posts WHERE post_type NOT IN ('revision', 'nav_menu_item', 'wp_template', 'wp_template_part') AND ( post_title LIKE '%$title%' OR post_name LIKE '%$title%') ORDER BY post_title, post_name ASC LIMIT 0, 15", ARRAY_A);
+        $context = $wpdb->get_results("SELECT * FROM {$wpdb->prefix}posts WHERE post_type NOT IN ('revision', 'nav_menu_item', 'wp_template', 'wp_template_part') AND ( post_title LIKE '%$title%' OR post_name LIKE '%$title%') AND post_type = '$posttype' AND post_status IN ('publish', 'draft') ORDER BY post_title, post_name ASC LIMIT 0, 15", ARRAY_A);
 
         if (!empty($context)) {
             foreach ($context as $post) {
@@ -77,7 +96,7 @@ class FDG_Syndicator_Api {
             }
         }
 
-        $counter = $wpdb->get_results("SELECT COUNT(*) as counter FROM {$wpdb->prefix}posts WHERE post_type NOT IN ('revision', 'nav_menu_item', 'wp_template', 'wp_template_part') AND ( post_title LIKE '%$title%' OR post_name LIKE '%$title%') ORDER BY post_title, post_name ASC", ARRAY_A);
+        $counter = $wpdb->get_results("SELECT COUNT(*) as counter FROM {$wpdb->prefix}posts WHERE post_type NOT IN ('revision', 'nav_menu_item', 'wp_template', 'wp_template_part') AND ( post_title LIKE '%$title%' OR post_name LIKE '%$title%') AND post_type = '$posttype' AND post_status IN ('publish', 'draft') ORDER BY post_title, post_name ASC", ARRAY_A);
         $counter = $counter[0]['counter'];
         return [
             'list' => $returnList,
@@ -106,17 +125,5 @@ class FDG_Syndicator_Api {
     {
         $request_uri = $_SERVER['REQUEST_URI'];
         return false !== strpos($request_uri, '/wp-json/');
-    }
-
-    public function check_if_outer_request($post_id, $post, $update)
-    {
-        if ($post->post_title == 'Auto Draft' || empty($post_id) || (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE)) return false;
-        $sourceHeader = isset($_SERVER['HTTP_X_REFERRER']) ? $_SERVER['HTTP_X_REFERRER'] : '';
-        if ($sourceHeader == '' || $sourceHeader != 'RemoteSyndicatorRequest') {
-
-            if (empty(get_post_meta($post_id, 'edit_blocked_from_api', true))) {
-                update_post_meta($post_id, 'edit_blocked_from_api', 'locked ' . date('Y-m-d H:i'));
-            }
-        }
     }
 }
