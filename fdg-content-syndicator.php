@@ -19,6 +19,9 @@ require_once "functions.php";
 require_once FDG_CONTENT_SYNDICATOR_PLUGIN_PATH . 'classes/fdg-syndicator-queue.php';
 
 register_activation_hook(__FILE__, function() {
+    $uploads_dir = trailingslashit( wp_upload_dir()['basedir'] ) . 'fdg-syndicator-meta';
+    wp_mkdir_p( $uploads_dir );
     FDG_Syndicator_Queue::instance()->install_table();
 });
+
 new FDG_App();

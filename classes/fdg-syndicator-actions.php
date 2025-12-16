@@ -94,6 +94,13 @@ class FDG_Syndicator_Actions {
     public function send_post_content($post_id, $post, $update)
     {
         if ($this->skip_request($post_id, $post)) return false;
+        global $wp_filesystem;
+
+        if (! $wp_filesystem) {
+            require_once ABSPATH . 'wp-admin/includes/file.php';
+            WP_Filesystem();
+        }
+
         $this->process_meta_fields($post_id, $post, $update);
 
         $syndicationOptions = get_post_meta($post_id, 'syndication_data', true);
@@ -102,6 +109,60 @@ class FDG_Syndicator_Actions {
             if (isset($syndicationOptions['syndication_flow']) && $syndicationOptions['syndication_flow'] == 0) {
 
                 $dataToUpdate = $this->format_post_data($post_id, $post);
+
+                //var_dump($dataToUpdate);
+
+                $filesList = [];
+                if (!empty($dataToUpdate['content_media'])) {
+                    foreach ($dataToUpdate['content_media'] as $key => $media) {
+                        $splitted = explode(':', $media);
+                        $mediaFile = get_attached_file($splitted[3]);
+                        $filesList[] = $mediaFile;
+                    }
+                }
+
+                if (!empty($dataToUpdate['meta_media'])) {
+                    foreach ($dataToUpdate['meta_media'] as $key => $media) {
+                        $mediaFile = get_attached_file($media['id']);
+                        $filesList[] = $mediaFile;
+                    }
+                }
+
+                $tempFolderName = 'post-' . $post_id . '-' . time();
+                $uploads_dir = trailingslashit( wp_upload_dir()['basedir'] ) . 'fdg-syndicator-meta/send/' . $tempFolderName;
+
+                $wp_filesystem->mkdir($uploads_dir, FS_CHMOD_DIR);
+                $filePut = $wp_filesystem->put_contents($uploads_dir . '/content.json', wp_json_encode($dataToUpdate, JSON_UNESCAPED_UNICODE), FS_CHMOD_FILE);
+                if (!empty($filesList)) {
+                    foreach ($filesList as $item) {
+                        $fileData = pathinfo($item);
+                        $imagePut = $wp_filesystem->copy($item, $uploads_dir . '/' . $fileData['basename']);
+                    }
+                }
+
+                if (class_exists('ZipArchive')) {
+                    // ZipArchive archive creation
+                    $zip = new ZipArchive();
+                    $zip->open(trailingslashit( wp_upload_dir()['basedir'] ) . 'fdg-syndicator-meta/send/' . $tempFolderName . '.zip', ZipArchive::CREATE | ZipArchive::OVERWRITE);
+                    $files = new RecursiveIteratorIterator(
+                        new RecursiveDirectoryIterator($uploads_dir),
+                        RecursiveIteratorIterator::LEAVES_ONLY
+                    );
+                    foreach ($files as $file) {
+                        if (!$file->isDir()) {
+                            $filePath = $file->getRealPath();
+                            $relativePath = substr($filePath, strlen($uploads_dir) + 1);
+                            $zip->addFile($filePath, $relativePath);
+                        }
+                    }
+                    $zip->close();
+                    $wp_filesystem->rmdir($uploads_dir, true);
+                    //var_dump(111);
+                } else if (function_exists('shell_exec')) {
+                    //var_dump(222);
+                } else {
+                    //var_dump(333);
+                }
                 die;
                 error_log('post type: ' . $post->post_type);
                 error_log('POST ID: ' . $post_id);
@@ -278,7 +339,7 @@ class FDG_Syndicator_Actions {
          * Parse for medias
          * */
 
-        $this->collect_media_from_page($dataToUpdate);
+        $dataToUpdate = $this->collect_media_from_page($dataToUpdate);
 
 
         //var_dump($dataToUpdate);
@@ -297,19 +358,39 @@ class FDG_Syndicator_Actions {
                 $resortedMedias = [];
                 foreach ($contentMedia as $media) {
                     $mediaId = $this->parse_media_reference($media);
-                    $resortedMedias[$media] = $mediaId;
+                    $resortedMedias[$media] = "fdgs:media-replacement:" . $mediaId;
                 }
             }
-            var_dump($resortedMedias);
         } else if ($builder == "gutenberg") {
             $contentMedia = $this->resolve_media_from_gutenberg_html($data["post_content"]);
 
             $resortedMedias = [];
             foreach ($contentMedia ?? [] as $item) {
-                $resortedMedias[$item['src']] = "fdgs:media-replacement:" . $item['id'];
+                $resortedMedias[$item['src']] = "fdgs:media-replacement:" . $item['sizeSlug'] . ':' . $item['id'];
             }
-            var_dump($resortedMedias);
         }
+        if (!empty($resortedMedias)) {
+            $data["post_content"] = str_replace(array_keys($resortedMedias), array_values($resortedMedias), $data["post_content"]);
+        }
+
+        $data['content_media'] = $resortedMedias;
+        $metaFieldImages = [];
+        if (!empty($data['meta_data'])) {
+            foreach ($data['meta_data'] as $metaKey => $metaValue) {
+                if (is_numeric($metaValue)) {
+                    $media = $this->parse_media_reference($metaValue);
+                    if ($media == $metaValue) {
+                        $metaFieldImages[] = [
+                            'id' => $media,
+                            'meta_key' => $metaKey,
+                        ];
+                    }
+                }
+            }
+        }
+
+        $data['meta_media'] = $metaFieldImages;
+        return $data;
     }
 
     public function collect_post_terms_data($post_id)
