@@ -1,6 +1,8 @@
 <?php
+namespace FdgSync;
+
 if ( ! defined( 'ABSPATH' ) ) die;
-class FDG_Syndicator_Api {
+class FdgSyndicatorApi {
     public function __construct() {
         add_action('rest_api_init', [$this, 'run_rest_routes']);
     }

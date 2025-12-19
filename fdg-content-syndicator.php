@@ -11,17 +11,14 @@
  * Requires at least: 6.1
  * Requires PHP: 7.4
  */
-
+use FdgSync\FdgSyndicatorQueue;
+use FdgSync\FdgApp;
 require_once "config.php";
-require_once "classes/fdg-app.php";
 require_once "functions.php";
-
-require_once FDG_CONTENT_SYNDICATOR_PLUGIN_PATH . 'classes/fdg-syndicator-queue.php';
-
 register_activation_hook(__FILE__, function() {
     $uploads_dir = trailingslashit( wp_upload_dir()['basedir'] ) . 'fdg-syndicator-meta';
     wp_mkdir_p( $uploads_dir );
-    FDG_Syndicator_Queue::instance()->install_table();
+    FdgSyndicatorQueue::instance()->install_table();
 });
 
-new FDG_App();
+$app = new FdgApp();

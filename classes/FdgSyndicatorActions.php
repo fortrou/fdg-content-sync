@@ -1,13 +1,15 @@
 <?php
+namespace FdgSync;
+use FdgSync\FdgSyndicatorRequests;
 if ( ! defined( 'ABSPATH' ) ) die;
-class FDG_Syndicator_Actions {
+class FdgSyndicatorActions {
 
     private $requests;
 
     private $api;
-    public function __construct($requests, $api) {
-        $this->requests = $requests;
-        $this->api = $api;
+    public function __construct() {
+        $this->requests = new FdgSyndicatorRequests();
+        $this->api = new FdgSyndicatorApi();
 
         $this->run_actions();
     }
@@ -140,10 +142,12 @@ class FDG_Syndicator_Actions {
                     }
                 }
 
+                $zipPath = trailingslashit( wp_upload_dir()['basedir'] ) . 'fdg-syndicator-meta/send/' . $tempFolderName . '.zip';
+
                 if (class_exists('ZipArchive')) {
                     // ZipArchive archive creation
                     $zip = new ZipArchive();
-                    $zip->open(trailingslashit( wp_upload_dir()['basedir'] ) . 'fdg-syndicator-meta/send/' . $tempFolderName . '.zip', ZipArchive::CREATE | ZipArchive::OVERWRITE);
+                    $zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE);
                     $files = new RecursiveIteratorIterator(
                         new RecursiveDirectoryIterator($uploads_dir),
                         RecursiveIteratorIterator::LEAVES_ONLY

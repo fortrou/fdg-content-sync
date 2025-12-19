@@ -1,5 +1,6 @@
 <?php
-class FDG_Syndicator_Queue {
+namespace FdgSync;
+class FdgSyndicatorQueue {
 
     private static $instance = null;
     private $table;

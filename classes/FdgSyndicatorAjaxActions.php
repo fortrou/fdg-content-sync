@@ -1,11 +1,13 @@
 <?php
+namespace FdgSync;
+use FdgSync\FdgSyndicatorRequests;
 if ( ! defined( 'ABSPATH' ) ) die;
-class FDG_Syndicator_Ajax_Actions {
+class FdgSyndicatorAjaxActions {
 
     private $requests;
 
-    public function __construct($requests) {
-        $this->requests = $requests;
+    public function __construct() {
+        $this->requests = new FdgSyndicatorRequests();
         $this->run_actions();
 
 

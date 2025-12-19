@@ -1,11 +1,12 @@
 <?php
+namespace FdgSync;
+use FdgSync\FdgSyndicatorApi;
+use FdgSync\FdgSyndicatorRequests;
+use FdgSync\FdgSyndicatorActions;
+use FdgSync\FdgSyndicatorAjaxActions;
 if ( ! defined( 'ABSPATH' ) ) die;
 
-require_once FDG_CONTENT_SYNDICATOR_PLUGIN_PATH . 'classes/fdg-syndicator-api.php';
-require_once FDG_CONTENT_SYNDICATOR_PLUGIN_PATH . 'classes/fdg-syndicator-requests.php';
-require_once FDG_CONTENT_SYNDICATOR_PLUGIN_PATH . 'classes/fdg-syndicator-actions.php';
-require_once FDG_CONTENT_SYNDICATOR_PLUGIN_PATH . 'classes/fdg-syndicator-ajax-actions.php';
-class FDG_App {
+class FdgApp {
 
     private $api;
 
@@ -23,10 +24,10 @@ class FDG_App {
     public function init()
     {
 
-        $this->api = new FDG_Syndicator_API();
-        $this->requests = new FDG_Syndicator_Requests();
-        $this->actions = new FDG_Syndicator_Actions($this->requests, $this->api);
-        $this->ajax = new FDG_Syndicator_Ajax_Actions($this->requests);
+        $this->api = new FdgSyndicatorApi();
+        $this->requests = new FdgSyndicatorRequests();
+        $this->actions = new FdgSyndicatorActions();
+        $this->ajax = new FdgSyndicatorAjaxActions();
     }
 
     public function run_actions()

@@ -1,6 +1,8 @@
 <?php
+namespace FdgSync;
+
 if ( ! defined( 'ABSPATH' ) ) die;
-class FDG_Syndicator_Requests {
+class FdgSyndicatorRequests {
 
     public $options;
 
