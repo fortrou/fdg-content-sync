@@ -3,26 +3,26 @@
   &.tabs-switcher-line {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: space-evenly;
 
     label {
       display: block;
-      width: 50%;
+      width: 45%;
       text-align: center;
-      line-height: 44px;
+      line-height: 32px;
       background: #0d99d544;
-      font-weight: 600;
+      font-weight: 400;
       color: #333;
-      font-size: 16px;
+      font-size: 14px;
       cursor: pointer;
       transition: .2s;
 
       &:first-of-type {
-        border-radius: 8px 0 0 8px;
+        border-radius: 8px;
       }
 
       &:last-child {
-        border-radius: 0 8px 8px 0;
+        border-radius: 8px;
       }
     }
 
@@ -30,8 +30,9 @@
       display: none;
 
       &:checked+label {
-        background: #0d99d5aa;
-        color: #fff;
+        background: #0d99d588;
+        color: #242424;
+        font-weight: 600;
       }
     }
   }
@@ -129,5 +130,21 @@
   &.heading-line {
     font-weight: 600;
     margin-bottom: 10px;
+  }
+}
+.syndication-configurations {
+  .run-sync-process {
+    margin-top: 20px;
+
+    a {
+      display: block;
+      width: 100%;
+      text-align: center;
+      text-decoration: none;
+      background: #2271b1;
+      color: #fff;
+      line-height: 36px;
+      border-radius: 4px;
+    }
   }
 }

@@ -1,6 +1,9 @@
 <?php
 namespace FdgSync;
 use FdgSync\FdgSyndicatorRequests;
+use FdgSync\FdgSyndicatorActions;
+use FdgSync\FdgSyndicatorQueue;
+
 if ( ! defined( 'ABSPATH' ) ) die;
 class FdgSyndicatorAjaxActions {
 
@@ -17,6 +20,23 @@ class FdgSyndicatorAjaxActions {
     {
         add_action('wp_ajax_fdg_sync_search_posts', [$this, 'search_posts']);
         add_action('wp_ajax_nopriv_fdg_sync_search_posts', [$this, 'search_posts']);
+
+        add_action('wp_ajax_fdg_direct_sync_post', [$this, 'direct_sync_post']);
+    }
+
+    public function direct_sync_post()
+    {
+        $post_id = $_POST['origin_post'];
+        $post = get_post($_POST['origin_post']);
+
+        $actionHolder = new FdgSyndicatorActions();
+        $actionHolder->prepare_post_content($post_id, $post);
+
+        FdgSyndicatorQueue::instance()->run_worker();
+
+        wp_send_json_success([
+            'message' => "Process started, status will be updated automatically. <br>Don't close the page",
+        ]);
     }
 
     public function search_posts()

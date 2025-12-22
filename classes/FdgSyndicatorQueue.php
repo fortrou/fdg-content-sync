@@ -135,9 +135,9 @@ class FdgSyndicatorQueue {
              * EMPTY HANDLER — You implement processing via your own hooks
              *
              * Example usage:
-             * do_action('sync_queue_handle_' . $task->type, $task, $payload, $this);
+             * do_action('fdg_sync_queue_handle_' . $task->type, $task, $payload, $this);
              */
-            do_action("sync_queue_handle_{$task->type}", $task, $payload, $this);
+            do_action("fdg_sync_queue_handle_{$task->type}", $task, $payload, $this);
 
             $this->mark_done($task->id);
 

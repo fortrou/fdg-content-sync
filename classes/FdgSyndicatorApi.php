@@ -106,6 +106,13 @@ class FdgSyndicatorApi {
         ];
     }
 
+    public function accept_post_chunks($request)
+    {
+        $data = $request->get_params();
+        $chunk = $data['chunk'];
+        $postData = $data['post_data'];
+    }
+
     public function check_if_record_exists($item_id, $type = 'post')
     {
         global $wpdb;

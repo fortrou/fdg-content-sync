@@ -65,4 +65,29 @@ jQuery(document).ready(function($) {
             $('#search-remote-post-classic').focus();
         }
     })
+
+    $(document).on('click', '#trigger-post-sync', function () {
+        $.ajax({
+            url: fdgsyncajax.ajax_url,
+            type: 'POST',
+            dataType: 'JSON',
+            data: {
+                action: 'fdg_direct_sync_post',
+                post_type: $('#syndicator-post-type').val(),
+                origin_post: $('#syndicator-origin-post').val(),
+                sync_type: $('[name=syndicator-origin-post]:checked').val(),
+                sync_post_id: $('#attached-post-id').val(),
+                sync_post_name: $('#attached-post-name').val(),
+                sync_post_slug: $('#attached-post-slug').val()
+            },
+            success: function(response) {
+
+            },
+            error: function(xhr) {
+                if (xhr.statusText !== 'abort') {
+                    console.error('Ошибка:', xhr.statusText);
+                }
+            }
+        });
+    })
 })

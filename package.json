@@ -1,25 +1,26 @@
 {
   "name": "fdg-content-syndicator",
   "version": "0.1.0",
-  "description": "Example block scaffolded with Create Block tool.",
+  "description": "Custom WordPress plugin with block and frontend styles",
   "author": "The WordPress Contributors",
   "license": "GPL-2.0-or-later",
   "main": "build/index.js",
   "scripts": {
-    "compilecss": "node-sass -w --include-path scss assets/css/index.scss assets/build/css/index.css --watch --output-style compressed",
-    "build": "wp-scripts build --watch",
-    "compileall": "wp-scripts build --watch && node-sass -w --include-path scss assets/css/index.scss assets/build/css/index.css --watch --output-style compressed",
-    "format": "wp-scripts format --watch",
+    "start": "wp-scripts start",
+    "build": "wp-scripts build",
+    "css:watch": "sass --watch assets/css/index.scss:assets/build/css/index.css --style=compressed",
+    "css:build": "sass assets/css/index.scss assets/build/css/index.css --style=compressed",
+    "format": "wp-scripts format",
     "lint:css": "wp-scripts lint-style",
     "lint:js": "wp-scripts lint-js",
     "packages-update": "wp-scripts packages-update",
-    "plugin-zip": "wp-scripts plugin-zip",
-    "start": "wp-scripts start"
+    "plugin-zip": "wp-scripts plugin-zip"
   },
   "dependencies": {
     "@wordpress/scripts": "^26.14.0",
-    "classnames": "^2.3.2",
-    "node-sass": "^9.0.0",
-    "sass": "^1.69.1"
+    "classnames": "^2.3.2"
+  },
+  "devDependencies": {
+    "sass": "^1.97.1"
   }
 }
