@@ -22,16 +22,273 @@ class FdgSyndicatorActions {
 
         add_action('edit_term', [$this, 'send_term_content'], 100, 3);
 
+        // handling queue requests
         add_action('fdg_sync_queue_handle_process_content_scrape', [$this, 'handle_process_content_scrape'], 10, 3);
         add_action('fdg_sync_queue_handle_process_media_scrape', [$this, 'handle_process_media_scrape'], 10, 3);
+        add_action('fdg_sync_queue_handle_copy_media', [$this, 'handle_copy_media'], 10, 3);
+        add_action('fdg_sync_queue_handle_heartbeat_check', [$this, 'handle_heartbeat_check'], 10, 3);
+        add_action('fdg_sync_queue_handle_zip_scan', [$this, 'handle_zip_scan'], 10, 3);
+        add_action('fdg_sync_queue_handle_zip_simple', [$this, 'handle_zip_simple'], 10, 3);
+        add_action('fdg_sync_queue_handle_zip_pcl', [$this, 'handle_zip_pcl'], 10, 3);
+        add_action('fdg_sync_queue_handle_archive_post', [$this, 'handle_archive_post'], 10, 3);
+        add_action('fdg_sync_queue_handle_push_archive_chunk', [$this, 'push_archive_chunk'], 10, 3);
     }
 
-    public function handle_process_content_scrape()
+    public function handle_process_content_scrape($task, $payload)
+    {
+        global $wp_filesystem;
+
+        if (! $wp_filesystem) {
+            require_once ABSPATH . 'wp-admin/includes/file.php';
+            WP_Filesystem();
+        }
+        $post_id = $payload['post_id'];
+        $post = get_post($post_id);
+        $dataToUpdate = $this->format_post_data($post_id, $post);
+
+        $filesList = [];
+        if (!empty($dataToUpdate['content_media'])) {
+            foreach ($dataToUpdate['content_media'] as $key => $media) {
+                $splitted = explode(':', $media);
+                $mediaFile = get_attached_file($splitted[3]);
+                $filesList[] = $mediaFile;
+            }
+        }
+
+        if (!empty($dataToUpdate['meta_media'])) {
+            foreach ($dataToUpdate['meta_media'] as $key => $media) {
+                $mediaFile = get_attached_file($media['id']);
+                $filesList[] = $mediaFile;
+            }
+        }
+
+        $tempFolderName = 'post-' . $post_id . '-' . time();
+        $uploads_dir = trailingslashit( wp_upload_dir()['basedir'] ) . 'fdg-syndicator-meta/send/' . $tempFolderName;
+
+        $wp_filesystem->mkdir($uploads_dir, FS_CHMOD_DIR);
+        $filePut = $wp_filesystem->put_contents($uploads_dir . '/content.json', wp_json_encode($dataToUpdate, JSON_UNESCAPED_UNICODE), FS_CHMOD_FILE);
+
+        FdgSyndicatorQueue::instance()->enqueue('process_media_scrape',
+        [
+            'post_id' => $post_id,
+            'folder_name' => $tempFolderName,
+            'files_list' => $filesList
+        ],
+        10, null, null, 5);
+    }
+
+    public function handle_process_media_scrape($task, $payload)
+    {
+        global $wp_filesystem;
+
+        if (! $wp_filesystem) {
+            require_once ABSPATH . 'wp-admin/includes/file.php';
+            WP_Filesystem();
+        }
+        $folderName = $payload['folder_name'];
+        $filesList = $payload['files_list'];
+        $uploads_dir = trailingslashit( wp_upload_dir()['basedir'] ) . 'fdg-syndicator-meta/send/' . $folderName;
+        if (!empty($filesList)) {
+            foreach ($filesList as $item) {
+                $fileData = pathinfo($item);
+                FdgSyndicatorQueue::instance()->enqueue('copy_media',
+                [
+                    'file' => $item,
+                    'folder_name' => $uploads_dir . '/' . $fileData['basename'],
+                ],
+                10, null, null, 5);
+            }
+            FdgSyndicatorQueue::instance()->enqueue('heartbeat_check',
+            [
+                'files' => $filesList,
+                'folder_name' => $folderName,
+                'type' => 'media_check'
+            ],
+            10, null, null, 5);
+        }
+        
+
+    }
+
+    public function handle_heartbeat_check($task, $payload)
+    {
+        $type = $payload['type'];
+        if ($type == 'media_check') {
+
+            $folderName = $payload['folder_name'];
+            FdgSyndicatorQueue::instance()->enqueue('zip_scan',
+                [
+                    'folder_name' => $folderName,
+                ],
+                10, null, null, 5);
+
+        }
+    }
+
+    public function handle_zip_scan($task, $payload)
+    {
+
+        global $wp_filesystem;
+
+        if (! $wp_filesystem) {
+            require_once ABSPATH . 'wp-admin/includes/file.php';
+            WP_Filesystem();
+        }
+
+        $folderName = $payload['folder_name'];
+        $uploads_dir = trailingslashit( wp_upload_dir()['basedir'] ) . 'fdg-syndicator-meta/send/' . $folderName;
+        $zipPath = trailingslashit( wp_upload_dir()['basedir'] ) . 'fdg-syndicator-meta/send/' . $folderName . '.zip';
+
+        if (class_exists('ZipArchive')) {
+            $zip = new \ZipArchive();
+            $zip->open($zipPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE);
+            $files = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($uploads_dir),
+                \RecursiveIteratorIterator::LEAVES_ONLY
+            );
+
+            $filesAggregated = 0;
+            $filesPull = [];
+            foreach ($files as $file) {
+                if (!$file->isDir()) {
+                    $filesize = ceil($file->getSize() / 8);
+                    $filePath = $file->getRealPath();
+                    $relativePath = substr($filePath, strlen($uploads_dir) + 1);
+                    if (($filesAggregated + $filesize) > 22500 && empty($filesPull)) {
+                        $filesPull[] = [
+                            'filepath' => $filePath,
+                            'relative' => $relativePath
+                        ];
+                        // release files
+                        FdgSyndicatorQueue::instance()->enqueue('zip_simple',
+                        [
+                            'file' => $zipPath,
+                            'filePull' => $filesPull,
+                        ],
+                        10, null, null, 5);
+                        $filesAggregated = 0;
+                        $filesPull = [];
+                    } else {
+                        if (($filesAggregated + $filesize) > 22500) {
+                            // release files
+                            FdgSyndicatorQueue::instance()->enqueue('zip_simple',
+                            [
+                                'file' => $zipPath,
+                                'filePull' => $filesPull,
+                            ],
+                            10, null, null, 5);
+                            $filesAggregated = 0;
+                            $filesPull = [[
+                                'filepath' => $filePath,
+                                'relative' => $relativePath
+                            ]];
+                        } else {
+                            $filesPull[] = [
+                                'filepath' => $filePath,
+                                'relative' => $relativePath
+                            ];
+                        }
+                    }
+                }
+            }
+            if (!empty($filesPull)) {
+                FdgSyndicatorQueue::instance()->enqueue('zip_simple',
+                [
+                    'file' => $zipPath,
+                    'filePull' => $filesPull,
+                ],
+                10, null, null, 5);
+            }
+
+            //$wp_filesystem->rmdir($uploads_dir, true);
+        } else {
+            require_once ABSPATH . 'wp-admin/includes/class-pclzip.php';
+            $archive = new \PclZip($zipPath);
+
+            $files = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($uploads_dir),
+                \RecursiveIteratorIterator::LEAVES_ONLY
+            );
+            $filesToZip = [];
+            foreach ($files as $file) {
+                if (!$file->isDir()) {
+                    $filePath = $file->getRealPath();
+                    $filesToZip[] = $filePath;
+                }
+            }
+
+            $archive->create(implode(',', $filesToZip), PCLZIP_OPT_REMOVE_PATH, ABSPATH);
+            $wp_filesystem->rmdir($uploads_dir, true);
+
+        }
+    }
+
+    public function handle_zip_simple($task, $payload)
+    {
+        $zip = new \ZipArchive();
+        $zip->open($payload['file'], \ZipArchive::CREATE);
+        if (!empty($payload['filePull'])) {
+            foreach ($payload['filePull'] as $file) {
+                $zip->addFile($file['filepath'], $file['relative']);
+            }
+        }
+        $zip->close();
+    }
+
+    public function handle_zip_pcl($task, $payload)
     {
 
     }
 
-    public function handle_process_media_scrape()
+    public function handle_copy_media($task, $payload)
+    {
+        global $wp_filesystem;
+
+        if (! $wp_filesystem) {
+            require_once ABSPATH . 'wp-admin/includes/file.php';
+            WP_Filesystem();
+        }
+        $file = $payload['file'];
+        $folder = $payload['folder_name'];
+        $imagePut = $wp_filesystem->copy($file, $folder);
+    }
+
+    public function handle_archive_post()
+    {
+        global $wp_filesystem;
+
+        if (! $wp_filesystem) {
+            require_once ABSPATH . 'wp-admin/includes/file.php';
+            WP_Filesystem();
+        }
+        $zipPath = trailingslashit( wp_upload_dir()['basedir'] ) . 'fdg-syndicator-meta/send/' . $tempFolderName . '.zip';
+        if ($wp_filesystem->exists($zipPath)) {
+            $size = filesize($zipPath);
+            $chuncks = ceil($size / FDG_CONTENT_SYNDICATOR_CHUNK_SIZE);
+            $setupChunks = [];
+            if ($chuncks && $chuncks > 0) {
+                for($i = 1; $i <= $chuncks; $i++) {
+                    $setupChunks[] = FdgSyndicatorQueue::instance()->enqueue('sync_post_chunk',
+                        [
+                            'total_chuncks_amount' => $chuncks,
+                            'post_archive_base' => $tempFolderName . '.zip',
+                            'post_id' => $post_id,
+                            'current_chunck' => $i,
+                        ],
+                        10, null, null, 5);
+                }
+
+                $setupChunks[] = FdgSyndicatorQueue::instance()->enqueue('sync_post_finalize',
+                    [
+                        'post_archive_base' => $tempFolderName . '.zip',
+                        'post_id' => $post_id,
+                    ],
+                    20, null, null, 5);
+            }
+        }
+    }
+
+    public function push_archive_chunk()
     {
 
     }
@@ -116,12 +373,16 @@ class FdgSyndicatorActions {
             WP_Filesystem();
         }
 
-        $this->process_meta_fields($post_id, $post);
-
         $syndicationOptions = get_post_meta($post_id, 'syndication_data', true);
         if (!empty($syndicationOptions)) {
             $syndicationOptions = json_decode($syndicationOptions, true);
             if (isset($syndicationOptions['syndication_flow']) && $syndicationOptions['syndication_flow'] == 0) {
+
+                FdgSyndicatorQueue::instance()->enqueue('process_content_scrape',
+                [
+                    'post_id' => $post_id,
+                ],
+                10, null, null, 5);
 
                 $dataToUpdate = $this->format_post_data($post_id, $post);
 
